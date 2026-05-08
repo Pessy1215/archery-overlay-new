@@ -265,6 +265,7 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
               })}
             >完成本回合 (NEXT END)</button>
           </>
+
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
             <div>
@@ -277,15 +278,15 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
               <ColorPicker label="姓名文字顏色" value={state.colors.nameText} onChange={(v:any) => onMutate(d => d.colors.nameText = v)} />
               <ColorPicker label="統計框背景色" value={state.colors.statsBg} onChange={(v:any) => onMutate(d => d.colors.statsBg = v)} />
             </div>
-            
-            {/* 版權標記 Footer */}
-            <div style={{ marginTop: "40px", padding: "30px 0", textAlign: "center", color: "#bbb", fontSize: "13px", borderTop: "1px solid #eee" }}>
-            <div style={{ fontWeight: 700, color: "#999", marginBottom: "5px" }}>ARCHERY OVERLAY SYSTEM v2.0</div>
-            <div>© 2026 Developed by LU PEI XUAN. All Rights Reserved.</div>
-            <div style={{ marginTop: "8px", fontSize: "11px", opacity: 0.7 }}>Powered by React, Supabase & Vercel</div>
-            </div>
+
           </div>
         )}
+      </div>
+      {/* 版權標記 Footer */}
+      <div style={{ marginTop: "40px", padding: "30px 0", textAlign: "center", color: "#bbb", fontSize: "13px", borderTop: "1px solid #eee" }}>
+        <div style={{ fontWeight: 700, color: "#999", marginBottom: "5px" }}>ARCHERY OVERLAY SYSTEM v2.0</div>
+        <div>© 2026 Developed by LV PEIXUAN. All Rights Reserved.</div>
+        <div style={{ marginTop: "8px", fontSize: "11px", opacity: 0.7 }}>Powered by React, Supabase & Vercel</div>
       </div>
     </div>
   );
