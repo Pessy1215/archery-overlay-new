@@ -287,6 +287,7 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
 // --- 觀戰畫面 ---
 function OverlayPage({ state }: { state: OverlayState }) {
   const { colors, isVisible, weather } = state;
+  // 計算當前畫面上箭值的總和
   const calcSum = (arr: any[]) => arr.reduce((s, v) => s + (v === "X" ? 10 : (v === "M" || v === "" ? 0 : Number(v))), 0);
 
   return (
@@ -298,7 +299,7 @@ function OverlayPage({ state }: { state: OverlayState }) {
         transformOrigin: "bottom center",
         transition: "opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
       }}>
-        {/* 風向標 */}
+        {/* 風向標 (維持原樣) */}
         <div style={{ 
           display: "flex", alignItems: "center", gap: "15px", 
           padding: "0 10px 10px 10px", color: colors.nameText, fontWeight: 900,
@@ -314,15 +315,30 @@ function OverlayPage({ state }: { state: OverlayState }) {
 
         {[state.playerA, state.playerB].map((p, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", marginBottom: "10px", gap: "2px" }}>
+            {/* 姓名欄 */}
             <div style={{ width: "450px", height: "90px", background: colors.nameBg, color: colors.nameText, padding: "0 30px", fontSize: "40px", fontWeight: 900, display: "flex", alignItems: "center" }}>{p.name}</div>
+            
+            {/* 箭值欄 */}
             <div style={{ display: "flex", gap: "2px" }}>
               {p.arrows.map((v, idx) => (
                 <div key={idx} style={{ width: "90px", height: "90px", background: colors.arrowBg, color: colors.arrowText, border: `1px solid #ddd`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "45px", fontWeight: 900 }}>{v}</div>
               ))}
             </div>
+
+            {/* 中間格：顯示當前小計 (SUM) 或 積點 (SET PTS) */}
             <div style={{ width: "120px", height: "90px", background: colors.statsBg, color: colors.statsText, border: `2px solid ${colors.statsText}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: "12px", fontWeight: 900 }}>{MODES[state.mode].system === "set" ? "SET PTS" : "TOTAL"}</span>
-              <span style={{ fontSize: "45px", fontWeight: 900 }}>{MODES[state.mode].system === "set" ? p.setPts : p.total + calcSum(p.arrows)}</span>
+              <span style={{ fontSize: "12px", fontWeight: 900 }}>{MODES[state.mode].system === "set" ? "SET PTS" : "SUM"}</span>
+              <span style={{ fontSize: "45px", fontWeight: 900 }}>
+                {MODES[state.mode].system === "set" ? p.setPts : calcSum(p.arrows)}
+              </span>
+            </div>
+
+            {/* 最後一格：一律顯示總分 (TOTAL) */}
+            <div style={{ width: "120px", height: "90px", background: colors.statsBg, color: colors.statsText, border: `2px solid ${colors.statsText}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: "12px", fontWeight: 900 }}>TOTAL</span>
+              <span style={{ fontSize: "45px", fontWeight: 900 }}>
+                {p.total + calcSum(p.arrows)}
+              </span>
             </div>
           </div>
         ))}
