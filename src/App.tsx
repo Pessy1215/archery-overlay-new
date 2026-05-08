@@ -277,8 +277,7 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
               <ColorPicker label="姓名文字顏色" value={state.colors.nameText} onChange={(v:any) => onMutate(d => d.colors.nameText = v)} />
               <ColorPicker label="統計框背景色" value={state.colors.statsBg} onChange={(v:any) => onMutate(d => d.colors.statsBg = v)} />
             </div>
-          </div>
-          {/* 頁尾版權標記 */}
+            {/* 頁尾版權標記 */}
       <div style={{ 
         marginTop: "40px", 
         padding: "20px 0", 
@@ -290,6 +289,7 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
         <p>© 2024 Archery Overlay System. All Rights Reserved.</p>
         <p>Developed by LV PEIXUAN</p>
       </div>
+          </div>
         )}
       </div>
     </div>
