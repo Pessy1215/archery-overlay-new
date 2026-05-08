@@ -279,11 +279,11 @@ function ControlPage({ state, onMutate }: { state: OverlayState; onMutate: (fn: 
             </div>
             
             {/* 版權標記 Footer */}
-      <div style={{ marginTop: "40px", padding: "30px 0", textAlign: "center", color: "#bbb", fontSize: "13px", borderTop: "1px solid #eee" }}>
-        <div style={{ fontWeight: 700, color: "#999", marginBottom: "5px" }}>ARCHERY OVERLAY SYSTEM v2.0</div>
-        <div>© 2026 Developed by LU PEI XUAN. All Rights Reserved.</div>
-        <div style={{ marginTop: "8px", fontSize: "11px", opacity: 0.7 }}>Powered by React, Supabase & Vercel</div>
-      </div>
+            <div style={{ marginTop: "40px", padding: "30px 0", textAlign: "center", color: "#bbb", fontSize: "13px", borderTop: "1px solid #eee" }}>
+            <div style={{ fontWeight: 700, color: "#999", marginBottom: "5px" }}>ARCHERY OVERLAY SYSTEM v2.0</div>
+            <div>© 2026 Developed by LU PEI XUAN. All Rights Reserved.</div>
+            <div style={{ marginTop: "8px", fontSize: "11px", opacity: 0.7 }}>Powered by React, Supabase & Vercel</div>
+            </div>
           </div>
         )}
       </div>
