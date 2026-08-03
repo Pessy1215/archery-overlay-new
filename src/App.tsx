@@ -45,7 +45,7 @@ type OverlayState = {
   overlayWidth: number;
 };
 
-const CWA_API_KEY = import.meta.env.VITE_CWA_API_KEY ?? "";
+const CWA_API_KEY = import.meta.env.VITE_CWA_API_KEY ?? "CWA-94EEA30F-6C53-469B-A844-517F1C23CECF";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 const OVERLAY_SLUG = import.meta.env.VITE_OVERLAY_SLUG ?? "archery-main";
@@ -54,9 +54,9 @@ const supabase = HAS_SUPABASE
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
-const PINK = "#e96aa0";
-const PINK_LIGHT = "#f48bb3";
-const PINK_PALE = "#fff1f6";
+const PINK = "#8CCDC6";
+const PINK_LIGHT = "#A8DDD8";
+const PINK_PALE = "#EEF9F7";
 const PANEL_BG = "#ffffff";
 const PAGE_BG = "#f4f4f4";
 
@@ -608,6 +608,20 @@ function ControlPage({
           <small style={{ fontWeight: 400, color: "#888" }}>({conn})</small>
         </h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <a
+            href="/overlay"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              textDecoration: "none",
+              color: PINK,
+              fontSize: 14,
+              fontWeight: 700,
+              padding: "7px 4px",
+            }}
+          >
+            觀戰畫面 ↗
+          </a>
           <button
             style={{ ...btnS(state.isVisible), minWidth: 105 }}
             onClick={() => onMutate((draft) => (draft.isVisible = !draft.isVisible))}
@@ -814,7 +828,7 @@ function ControlPage({
               fontSize: 20,
               fontWeight: 900,
               cursor: "pointer",
-              boxShadow: "0 4px 10px rgba(233,106,160,0.3)",
+              boxShadow: "0 4px 10px rgba(140,205,198,0.35)",
             }}
             onClick={() =>
               onMutate((draft) => {
