@@ -1121,7 +1121,8 @@ export default function App() {
   const [state, setState] = useState<OverlayState>(makeInitialState());
   const [isLoaded, setIsLoaded] = useState(false);
   const stateRef = useRef(state);
-  const isLocalUpdateRef = useRef(false);
+  const syncTimerRef = useRef<number | null>(null);
+  const lastLocalUpdatedAtRef = useRef(0);
 
   useEffect(() => {
     stateRef.current = state;
@@ -1151,21 +1152,39 @@ export default function App() {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
           schema: "public",
           table: "overlay_states",
           filter: `slug=eq.${OVERLAY_SLUG}`,
         },
         (payload) => {
-          if (!isLocalUpdateRef.current && payload.new && "state" in payload.new) {
-            setState(normalizeState(payload.new.state as Partial<OverlayState>));
+          if (!payload.new || !("state" in payload.new)) return;
+
+          const serverUpdatedAt = Date.parse(
+            String((payload.new as { updated_at?: string }).updated_at ?? ""),
+          );
+
+          // 忽略剛由本機送出的 Realtime 回音，避免舊資料覆蓋目前畫面。
+          if (
+            Number.isFinite(serverUpdatedAt) &&
+            serverUpdatedAt <= lastLocalUpdatedAtRef.current
+          ) {
+            return;
           }
-          isLocalUpdateRef.current = false;
+
+          const incoming = normalizeState(
+            payload.new.state as Partial<OverlayState>,
+          );
+          stateRef.current = incoming;
+          setState(incoming);
         },
       )
       .subscribe();
 
     return () => {
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+      }
       void supabase.removeChannel(channel);
     };
   }, []);
@@ -1178,25 +1197,33 @@ export default function App() {
     stateRef.current = normalized;
     setState(normalized);
 
-    if (supabase) {
-      isLocalUpdateRef.current = true;
-      void supabase
+    if (!supabase) return;
+
+    // 連續輸入箭值時先更新本機，停止操作 500ms 後再同步一次。
+    if (syncTimerRef.current !== null) {
+      window.clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = window.setTimeout(async () => {
+      const stateToSave = stateRef.current;
+      const updatedAt = new Date().toISOString();
+      lastLocalUpdatedAtRef.current = Date.parse(updatedAt);
+
+      const { error } = await supabase
         .from("overlay_states")
         .upsert(
           {
             slug: OVERLAY_SLUG,
-            state: normalized,
-            updated_at: new Date().toISOString(),
+            state: stateToSave,
+            updated_at: updatedAt,
           },
           { onConflict: "slug" },
-        )
-        .then(({ error }) => {
-          if (error) {
-            isLocalUpdateRef.current = false;
-            console.error("State sync error:", error);
-          }
-        });
-    }
+        );
+
+      if (error) {
+        console.error("State sync error:", error);
+      }
+    }, 500);
   };
 
   useEffect(() => {
