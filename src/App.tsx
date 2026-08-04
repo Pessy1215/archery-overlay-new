@@ -205,6 +205,7 @@ function normalizeState(raw: Partial<OverlayState> | null | undefined): OverlayS
       stationName: "花蓮",
       windSpeed: Number(raw?.weather?.windSpeed ?? 0),
       windDeg: Number(raw?.weather?.windDeg ?? 0),
+      isAuto: false,
     },
     offsetX: Number(raw?.offsetX ?? 0),
     offsetY: Number(raw?.offsetY ?? 0),
@@ -728,26 +729,9 @@ function ControlPage({
               onMutate((draft) => (draft.weather.windDeg = value))
             }
           />
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 12,
-              color: "#666",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={state.weather.isAuto}
-              onChange={(event) =>
-                onMutate(
-                  (draft) => (draft.weather.isAuto = event.target.checked),
-                )
-              }
-            />
-            啟用每 10 分鐘自動更新
-          </label>
+          <div style={{ fontSize: 12, color: "#777" }}>
+            天氣只會在按下「更新中央氣象署資料」時更新，不會定時自動更新。
+          </div>
         </div>
       </div>
 
@@ -795,7 +779,19 @@ function ControlPage({
                 key={mode}
                 style={btnS(state.mode === mode)}
                 onClick={() => {
-                  onMutate((draft) => Object.assign(draft, makeInitialState(mode)));
+                  onMutate((draft) => {
+                    const nextArrowCount = MODES[mode].arrowsPerEnd;
+                    draft.mode = mode;
+                    draft.arrowsPerEnd = nextArrowCount;
+                    draft.playerA.arrows = Array.from(
+                      { length: nextArrowCount },
+                      (_, index) => draft.playerA.arrows[index] ?? "",
+                    );
+                    draft.playerB.arrows = Array.from(
+                      { length: nextArrowCount },
+                      (_, index) => draft.playerB.arrows[index] ?? "",
+                    );
+                  });
                   setSel({ side: "left", idx: 0 });
                 }}
               >
@@ -1123,6 +1119,7 @@ export default function App() {
   const stateRef = useRef(state);
   const syncTimerRef = useRef<number | null>(null);
   const lastLocalUpdatedAtRef = useRef(0);
+  const isControlPage = window.location.pathname !== "/overlay";
 
   useEffect(() => {
     stateRef.current = state;
@@ -1159,6 +1156,10 @@ export default function App() {
         },
         (payload) => {
           if (!payload.new || !("state" in payload.new)) return;
+
+          // 控制台是唯一資料來源，不接受伺服器資料反向覆蓋。
+          // Overlay 頁面仍會接收控制台送出的即時更新。
+          if (isControlPage) return;
 
           const serverUpdatedAt = Date.parse(
             String((payload.new as { updated_at?: string }).updated_at ?? ""),
@@ -1199,7 +1200,7 @@ export default function App() {
 
     if (!supabase) return;
 
-    // 連續輸入箭值時先更新本機，停止操作 500ms 後再同步一次。
+    // 連續操作時合併為一次同步；這不是定時更新，也不會重置比分。
     if (syncTimerRef.current !== null) {
       window.clearTimeout(syncTimerRef.current);
     }
@@ -1226,24 +1227,6 @@ export default function App() {
     }, 500);
   };
 
-  useEffect(() => {
-    if (!state.weather.isAuto) return;
-
-    const updateWeather = async () => {
-      const current = stateRef.current;
-      const result = await fetchCwaWeather("花蓮");
-      if (!result) return;
-
-      handleMutate((draft) => {
-        draft.weather.windSpeed = result.windSpeed;
-        draft.weather.windDeg = result.windDeg;
-      });
-    };
-
-    void updateWeather();
-    const interval = window.setInterval(updateWeather, 600_000);
-    return () => window.clearInterval(interval);
-  }, [state.weather.isAuto]);
 
   if (!isLoaded) return null;
 
