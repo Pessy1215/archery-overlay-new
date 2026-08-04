@@ -48,7 +48,7 @@ type OverlayState = {
 const CWA_API_KEY = import.meta.env.VITE_CWA_API_KEY ?? "CWA-94EEA30F-6C53-469B-A844-517F1C23CECF";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
-const OVERLAY_SLUG = import.meta.env.VITE_OVERLAY_SLUG ?? "archery-main";
+const OVERLAY_SLUG = import.meta.env.VITE_OVERLAY_SLUG ?? "hualien-archery-manual-v1";
 const HAS_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const supabase = HAS_SUPABASE
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -203,9 +203,9 @@ function normalizeState(raw: Partial<OverlayState> | null | undefined): OverlayS
       ...base.weather,
       ...(raw?.weather ?? {}),
       stationName: "花蓮",
+      isAuto: false,
       windSpeed: Number(raw?.weather?.windSpeed ?? 0),
       windDeg: Number(raw?.weather?.windDeg ?? 0),
-      isAuto: false,
     },
     offsetX: Number(raw?.offsetX ?? 0),
     offsetY: Number(raw?.offsetY ?? 0),
@@ -729,8 +729,8 @@ function ControlPage({
               onMutate((draft) => (draft.weather.windDeg = value))
             }
           />
-          <div style={{ fontSize: 12, color: "#777" }}>
-            天氣只會在按下「更新中央氣象署資料」時更新，不會定時自動更新。
+          <div style={{ fontSize: 12, color: "#666" }}>
+            天氣資料只會在你按下「更新中央氣象署資料」時更新。
           </div>
         </div>
       </div>
@@ -780,17 +780,11 @@ function ControlPage({
                 style={btnS(state.mode === mode)}
                 onClick={() => {
                   onMutate((draft) => {
-                    const nextArrowCount = MODES[mode].arrowsPerEnd;
+                    const arrowsPerEnd = MODES[mode].arrowsPerEnd;
                     draft.mode = mode;
-                    draft.arrowsPerEnd = nextArrowCount;
-                    draft.playerA.arrows = Array.from(
-                      { length: nextArrowCount },
-                      (_, index) => draft.playerA.arrows[index] ?? "",
-                    );
-                    draft.playerB.arrows = Array.from(
-                      { length: nextArrowCount },
-                      (_, index) => draft.playerB.arrows[index] ?? "",
-                    );
+                    draft.arrowsPerEnd = arrowsPerEnd;
+                    draft.playerA.arrows = Array(arrowsPerEnd).fill("");
+                    draft.playerB.arrows = Array(arrowsPerEnd).fill("");
                   });
                   setSel({ side: "left", idx: 0 });
                 }}
@@ -1118,14 +1112,17 @@ export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const stateRef = useRef(state);
   const syncTimerRef = useRef<number | null>(null);
-  const lastLocalUpdatedAtRef = useRef(0);
-  const isControlPage = window.location.pathname !== "/overlay";
+  const isOverlayPage =
+    window.location.pathname === "/overlay" ||
+    window.location.pathname.endsWith("/overlay/");
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
       if (supabase) {
         const { data, error } = await supabase
@@ -1134,18 +1131,33 @@ export default function App() {
           .eq("slug", OVERLAY_SLUG)
           .maybeSingle();
 
-        if (error) console.error("Initial state load error:", error);
-        if (data?.state) setState(normalizeState(data.state));
+        if (error) {
+          console.error("Initial state load error:", error);
+        } else if (!cancelled && data?.state) {
+          const incoming = normalizeState(data.state as Partial<OverlayState>);
+          stateRef.current = incoming;
+          setState(incoming);
+        }
       }
-      setIsLoaded(true);
+
+      if (!cancelled) setIsLoaded(true);
     };
 
     void init();
 
-    if (!supabase) return;
+    if (!supabase || !isOverlayPage) {
+      return () => {
+        cancelled = true;
+        if (syncTimerRef.current !== null) {
+          window.clearTimeout(syncTimerRef.current);
+          syncTimerRef.current = null;
+        }
+      };
+    }
 
+    // Overlay 是唯讀頁面，只接收控制台寫入的新狀態。
     const channel = supabase
-      .channel(`sync-${OVERLAY_SLUG}`)
+      .channel(`overlay-readonly-${OVERLAY_SLUG}`)
       .on(
         "postgres_changes",
         {
@@ -1157,22 +1169,6 @@ export default function App() {
         (payload) => {
           if (!payload.new || !("state" in payload.new)) return;
 
-          // 控制台是唯一資料來源，不接受伺服器資料反向覆蓋。
-          // Overlay 頁面仍會接收控制台送出的即時更新。
-          if (isControlPage) return;
-
-          const serverUpdatedAt = Date.parse(
-            String((payload.new as { updated_at?: string }).updated_at ?? ""),
-          );
-
-          // 忽略剛由本機送出的 Realtime 回音，避免舊資料覆蓋目前畫面。
-          if (
-            Number.isFinite(serverUpdatedAt) &&
-            serverUpdatedAt <= lastLocalUpdatedAtRef.current
-          ) {
-            return;
-          }
-
           const incoming = normalizeState(
             payload.new.state as Partial<OverlayState>,
           );
@@ -1183,32 +1179,33 @@ export default function App() {
       .subscribe();
 
     return () => {
-      if (syncTimerRef.current !== null) {
-        window.clearTimeout(syncTimerRef.current);
-      }
+      cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isOverlayPage]);
 
   const handleMutate = (fn: (draft: OverlayState) => void) => {
     const next = structuredClone(stateRef.current);
     fn(next);
+
     const normalized = normalizeState(next);
+    normalized.weather.isAuto = false;
 
     stateRef.current = normalized;
     setState(normalized);
 
-    if (!supabase) return;
+    // Overlay 絕對不能寫入 Supabase；只有控制台操作才會儲存。
+    if (!supabase || isOverlayPage) return;
 
-    // 連續操作時合併為一次同步；這不是定時更新，也不會重置比分。
+    // 合併短時間內的連續按鍵，並非定時更新。
     if (syncTimerRef.current !== null) {
       window.clearTimeout(syncTimerRef.current);
     }
 
     syncTimerRef.current = window.setTimeout(async () => {
-      const stateToSave = stateRef.current;
-      const updatedAt = new Date().toISOString();
-      lastLocalUpdatedAtRef.current = Date.parse(updatedAt);
+      syncTimerRef.current = null;
+      const stateToSave = structuredClone(stateRef.current);
+      stateToSave.weather.isAuto = false;
 
       const { error } = await supabase
         .from("overlay_states")
@@ -1216,17 +1213,14 @@ export default function App() {
           {
             slug: OVERLAY_SLUG,
             state: stateToSave,
-            updated_at: updatedAt,
+            updated_at: new Date().toISOString(),
           },
           { onConflict: "slug" },
         );
 
-      if (error) {
-        console.error("State sync error:", error);
-      }
-    }, 500);
+      if (error) console.error("State sync error:", error);
+    }, 300);
   };
-
 
   if (!isLoaded) return null;
 
